@@ -1,0 +1,13 @@
+{
+  "name": "signal-loom",
+  "version": "0.1.0",
+  "description": "Webhook and event-stream router.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
