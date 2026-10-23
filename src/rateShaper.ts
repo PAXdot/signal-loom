@@ -1,41 +1,74 @@
-FILENAME: rateShaper.ts
-COMMIT: feat: Add rate shaper iterator utility
-```typescript
 // src/rateShaper.ts
 
+import { EventEmitter } from 'node:events';
+
 /**
- * Creates an iterator that shapes the rate of incoming messages and logs their delivery.
+ * Creates an iterator and an event emitter that shape the rate of incoming messages,
+ * logs their delivery, and emits events for rate limiting.
  *
  * @param messages - An async iterable of incoming messages.
  * @param maxMessagesPerSecond - The maximum rate of messages to emit.
  * @param log - A function to log each delivery event.
  */
-async function* rateShaper(
-  messages: AsyncIterable<unknown>,
-  maxMessagesPerSecond: number,
-  log: (message: unknown) => void
-) {
-  const queue: unknown[] = [];
-  const interval = 1000 / maxMessagesPerSecond;
+class RateShaper extends EventEmitter {
+  private queue: unknown[] = [];
+  private interval: number;
+  private pushQueueResolve: (value: unknown) => void;
 
-  async function pushQueue() {
-    while (queue.length > 0) {
-      const msg = queue.shift();
+  constructor(
+    private messages: AsyncIterable<unknown>,
+    maxMessagesPerSecond: number,
+    private log: (message: unknown) => void
+  ) {
+    super();
+    this.interval = 1000 / maxMessagesPerSecond;
+    this.pushQueueResolve = undefined;
+  }
+
+  /**
+   * Pushes items from the queue at the specified rate and emits 'rateLimited' events
+   * when the queue size exceeds `maxMessagesPerSecond * interval`.
+   */
+  private async pushQueue() {
+    while (this.queue.length > 0) {
+      const msg = this.queue.shift();
       if (msg) {
-        log(msg);
-        yield msg;
-        await new Promise((resolve) => setTimeout(resolve, interval));
+        this.log(msg);
+        this.emit('delivered', msg);
+        await new Promise((resolve) => {
+          this.pushQueueResolve = resolve;
+          setTimeout(resolve, this.interval);
+        });
       }
     }
+    this.pushQueueResolve = undefined;
   }
 
-  async function* iterator() {
-    for await (const msg of messages) {
-      queue.push(msg);
-      yield* pushQueue();
+  /**
+   * Iterates over the incoming messages, pushing them into the queue and calling `pushQueue`
+   * when necessary.
+   */
+  async* iterator() {
+    for await (const msg of this.messages) {
+      this.queue.push(msg);
+      if (this.pushQueueResolve && this.queue.length > this.maxMessagesPerSecond * this.interval) {
+        this.emit('rateLimited');
+      } else {
+        this.pushQueueResolve?.();
+      }
+      yield* this.pushQueue();
     }
-    yield* pushQueue();
+    yield* this.pushQueue();
   }
 
-  return iterator();
+  /**
+   * Starts the rate shaping and message delivery process.
+   */
+  start() {
+    this.emit('start');
+    this.messages[Symbol.asyncIterator]().next().then((result) => {
+      if (result.done) return;
+      void this.iterator().next();
+    });
+  }
 }
