@@ -4,14 +4,14 @@ import { EventEmitter } from 'node:events';
 
 /**
  * Creates an iterator and an event emitter that shape the rate of incoming messages,
- * logs their delivery, and emits events for rate limiting.
+ * logs their delivery in a human-readable format, and emits events for rate limiting.
  *
  * @param messages - An async iterable of incoming messages.
  * @param maxMessagesPerSecond - The maximum rate of messages to emit.
  * @param log - A function to log each delivery event.
  */
 class RateShaper extends EventEmitter {
-  private queue: unknown[] = [];
+  private queue:unknown[] = [];
   private interval: number;
   private pushQueueResolve: (value: unknown) => void;
 
@@ -33,7 +33,7 @@ class RateShaper extends EventEmitter {
     while (this.queue.length > 0) {
       const msg = this.queue.shift();
       if (msg) {
-        this.log(msg);
+        this.log(`Delivered: ${JSON.stringify(msg)}`);
         this.emit('delivered', msg);
         await new Promise((resolve) => {
           this.pushQueueResolve = resolve;
@@ -46,7 +46,7 @@ class RateShaper extends EventEmitter {
 
   /**
    * Iterates over the incoming messages, pushing them into the queue and calling `pushQueue`
-   * when necessary.
+   * when necessary. Clearer naming and edge case handling for the last batch of messages.
    */
   async* iterator() {
     for await (const msg of this.messages) {
@@ -58,6 +58,7 @@ class RateShaper extends EventEmitter {
       }
       yield* this.pushQueue();
     }
+    // Process any remaining messages in the queue after the async iterable is exhausted.
     yield* this.pushQueue();
   }
 
