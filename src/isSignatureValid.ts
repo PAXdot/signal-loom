@@ -1,15 +1,20 @@
-// src/isSignatureValid.ts
-
 /**
- * Validates the signature of an incoming event based on the expected signature.
+ * Validates the signature of an incoming event and provides a human-readable output.
  *
  * @param event - The incoming event to validate.
  * @param expectedSignature - The expected signature for the event.
- * @returns True if the signature is valid, false otherwise.
+ * @returns An object containing the validation result and a human-readable message.
  */
-function isSignatureValid(event: any, expectedSignature: string): boolean {
-  // Implement signature validation logic here. This is a placeholder for the actual implementation.
-  return event.signature === expectedSignature;
+function isSignatureValid(event: { signature: string }, expectedSignature: string): { valid: boolean, message: string } {
+  if (!event || !event.signature) {
+    return { valid: false, message: 'Invalid event: missing signature' };
+  }
+
+  if (event.signature !== expectedSignature) {
+    return { valid: false, message: `Invalid signature: expected ${expectedSignature}, received ${event.signature}` };
+  }
+
+  return { valid: true, message: 'Signature is valid' };
 }
 
 export { isSignatureValid };
