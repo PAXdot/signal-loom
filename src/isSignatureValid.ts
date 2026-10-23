@@ -5,9 +5,13 @@
  * @param expectedSignature - The expected signature for the event.
  * @returns An object containing the validation result and a human-readable message.
  */
-function isSignatureValid(event: { signature: string }, expectedSignature: string): { valid: boolean, message: string } {
-  if (!event || !event.signature) {
+function isSignatureValid(event: { signature?: string }, expectedSignature: string): { valid: boolean, message: string } {
+  if (!event) {
     return { valid: false, message: 'Invalid event: missing signature' };
+  }
+
+  if (!event.signature || event.signature.trim() === '') {
+    return { valid: false, message: 'Invalid event: missing or blank signature' };
   }
 
   if (event.signature !== expectedSignature) {
