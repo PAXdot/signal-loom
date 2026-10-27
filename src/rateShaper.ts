@@ -1,5 +1,3 @@
-// src/rateShaper.ts
-
 import { EventEmitter } from 'node:events';
 
 /**
@@ -11,18 +9,17 @@ import { EventEmitter } from 'node:events';
  * @param log - A function to log each delivery event.
  */
 class RateShaper extends EventEmitter {
-  private queue:unknown[] = [];
+  private queue: unknown[] = [];
   private interval: number;
-  private pushQueueResolve: (value: unknown) => void;
+  private pushQueueTimer: NodeJS.Timeout | undefined;
 
   constructor(
     private messages: AsyncIterable<unknown>,
-    maxMessagesPerSecond: number,
+    private maxMessagesPerSecond: number,
     private log: (message: unknown) => void
   ) {
     super();
     this.interval = 1000 / maxMessagesPerSecond;
-    this.pushQueueResolve = undefined;
   }
 
   /**
@@ -35,31 +32,51 @@ class RateShaper extends EventEmitter {
       if (msg) {
         this.log(`Delivered: ${JSON.stringify(msg)}`);
         this.emit('delivered', msg);
-        await new Promise((resolve) => {
-          this.pushQueueResolve = resolve;
-          setTimeout(resolve, this.interval);
-        });
+        await this.sleep(this.interval);
+        if (this.queue.length > this.maxMessagesPerSecond * this.interval) {
+          this.emit('rateLimited');
+        }
       }
     }
-    this.pushQueueResolve = undefined;
+    this.pushQueueTimer = undefined;
+  }
+
+  /**
+   * Sleeps for the given duration.
+   *
+   * @param ms - The duration to sleep in milliseconds.
+   */
+  private sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * Iterates over the incoming messages, pushing them into the queue and calling `pushQueue`
-   * when necessary. Clearer naming and edge case handling for the last batch of messages.
+   * when necessary. Clears pending timers and handles edge cases for the last batch of messages.
    */
   async* iterator() {
     for await (const msg of this.messages) {
       this.queue.push(msg);
-      if (this.pushQueueResolve && this.queue.length > this.maxMessagesPerSecond * this.interval) {
+      if (this.pushQueueTimer && this.queue.length > this.maxMessagesPerSecond * this.interval) {
         this.emit('rateLimited');
       } else {
-        this.pushQueueResolve?.();
+        this.clearPendingTimer();
       }
       yield* this.pushQueue();
     }
     // Process any remaining messages in the queue after the async iterable is exhausted.
+    this.clearPendingTimer();
     yield* this.pushQueue();
+  }
+
+  /**
+   * Clears the pending timer, if one exists.
+   */
+  private clearPendingTimer() {
+    if (this.pushQueueTimer) {
+      clearTimeout(this.pushQueueTimer);
+      this.pushQueueTimer = undefined;
+    }
   }
 
   /**
