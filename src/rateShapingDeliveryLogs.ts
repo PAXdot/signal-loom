@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
  */
 export interface DeliveryLog {
   readonly id: string;
-  readonly timestamp: number;
+  readonly timestamp: Date;
   readonly eventId: string;
   readonly status: 'queued' | 'delivered' | 'failed' | 'retry';
   readonly destination: string;
@@ -24,6 +24,8 @@ export class RateShapingDeliveryLogs {
   private lastRefill: number;
   private log: DeliveryLog[] = [];
   private currentLogIndex = 0;
+  private closed = false;
+  private timeoutId: ReturnType<typeof setTimeout> | null;
 
   /**
    * @param capacity - Maximum burst of tokens (e.g., 10)
@@ -36,15 +38,15 @@ export class RateShapingDeliveryLogs {
     this.capacity = capacity;
     this.refillRate = refillRate;
     this.tokens = capacity;
-    this.lastRefill = Date.now();
+    this.lastRefill = new Date();
   }
 
   /**
    * Refills tokens based on elapsed time.
    */
   private refill(): void {
-    const now = Date.now();
-    const elapsedSeconds = (now - this.lastRefill) / 1000;
+    const now = new Date();
+    const elapsedSeconds = (now.getTime() - this.lastRefill.getTime()) / 1000;
     this.tokens = Math.min(this.capacity, this.tokens + elapsedSeconds * this.refillRate);
     this.lastRefill = now;
   }
@@ -62,7 +64,7 @@ export class RateShapingDeliveryLogs {
       this.tokens -= 1;
       this.log.push({
         id: randomUUID(),
-        timestamp: Date.now(),
+        timestamp: new Date(),
         eventId,
         status: 'queued',
         destination,
@@ -72,7 +74,7 @@ export class RateShapingDeliveryLogs {
     }
     this.log.push({
       id: randomUUID(),
-      timestamp: Date.now(),
+      timestamp: new Date(),
       eventId,
       status: 'failed',
       destination,
@@ -107,7 +109,7 @@ export class RateShapingDeliveryLogs {
    * Returns a synchronous generator that iterates over all delivery logs
    * in chronological order. Useful for delivery log reporting or replay.
    */
-  public *deliveryLogEntries(): Generator<DeliveryLog, void, unknown> {
+  public *deliveryLogEntries(): Generator<DeliveryLog> {
     for (const log of this.log) {
       yield log;
     }
@@ -117,26 +119,26 @@ export class RateShapingDeliveryLogs {
    * Returns a live generator that yields delivery logs as they are added.
    * Continues until `close()` is called.
    */
-  public *liveDeliveryLogs(): Generator<DeliveryLog, void, unknown> {
+  public *liveDeliveryLogs(): Generator<DeliveryLog> {
     while (this.currentLogIndex < this.log.length || !this.closed) {
       while (this.currentLogIndex < this.log.length) {
         yield this.log[this.currentLogIndex++];
       }
-      if (!this.closed) {
-        // Yield control to allow new logs to be added
-        (globalThis as any).setTimeout?.();
+      if (!this.closed && this.timeoutId === null) {
+        this.timeoutId = setTimeout(() => { this.timeoutId = null; }, 10);
         continue;
       }
     }
   }
-
-  private closed = false;
 
   /**
    * Closes the live delivery log generator.
    */
   public close(): void {
     this.closed = true;
+    if (this.timeoutId !== null) {
+      clearTimeout(this.timeoutId);
+    }
   }
 
   /**
@@ -161,7 +163,8 @@ export class RateShapingDeliveryLogs {
     this.log = [];
     this.currentLogIndex = 0;
     this.tokens = this.capacity;
-    this.lastRefill = Date.now();
+    this.lastRefill = new Date();
     this.closed = false;
+    this.timeoutId = null;
   }
 }
