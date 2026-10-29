@@ -11,15 +11,15 @@ export interface FilterRule {
   /** Field path to evaluate, e.g. "event.type" */
   field: string;
   /** Operator for comparison */
-  op: 'eq' | 'neq' | 'exists' | 'not_exists';
+  op: 'eq' | 'neq' | 'exists' | 'not_exists' | 'starts_with' | 'ends_with' | 'contains';
   /** Value to compare against (optional for exists/not_exists) */
-  value?: unknown;
+  value?: string;
 }
 
 /**
  * Decorator to memoize function results based on input arguments.
  */
-function memoize fn: Function {
+function memoize(fn: Function) {
   const cache = new Map<string, Map<string, unknown>>();
   return (...args: any) => {
     const cacheKey = args.map(JSON.stringify).join(',');
@@ -52,6 +52,15 @@ export function evaluateFilterRule(rule: FilterRule, payload: Record<string, unk
       return fieldValue !== undefined;
     case 'not_exists':
       return fieldValue === undefined;
+    case 'starts_with':
+      if (typeof fieldValue !== 'string') return false;
+      return (fieldValue as string).startsWith(rule.value as string);
+    case 'ends_with':
+      if (typeof fieldValue !== 'string') return false;
+      return (fieldValue as string).endsWith(rule.value as string);
+    case 'contains':
+      if (typeof fieldValue !== 'string') return false;
+      return (fieldValue as string).includes(rule.value as string);
     default:
       return false;
   }
@@ -75,5 +84,5 @@ function getFieldValue(obj: Record<string, unknown>, path: string): unknown {
 }
 
 describe('filterRule', () => {
-  // ... (tests remain the same)
+  // ... (tests remain the same, but consider adding some for the new string comparison operations)
 });
