@@ -8,7 +8,7 @@ interface TransformEventPayload {
 }
 
 class EventEmitter {
-  private listeners: { [event in EventTypes]: ((payload: TransformEventPayload) => void)[] };
+  private listeners: { [event in EventTypes]: ((payload: TransformEventPayload) => Promise<void>)[] };
 
   constructor() {
     this.listeners = {
@@ -17,7 +17,7 @@ class EventEmitter {
     };
   }
 
-  on(event: EventTypes, listener: (payload: TransformEventPayload) => void): void {
+  on(event: EventTypes, listener: (payload: TransformEventPayload) => Promise<void>): void {
     if (this.listeners[event]) {
       this.listeners[event].push(listener);
     } else {
@@ -25,7 +25,7 @@ class EventEmitter {
     }
   }
 
-  off(event: EventTypes, listener: (payload: TransformEventPayload) => void): void {
+  off(event: EventTypes, listener: (payload: TransformEventPayload) => Promise<void>): void {
     if (this.listeners[event]) {
       const index = this.listeners[event].indexOf(listener);
       if (index !== -1) {
@@ -36,9 +36,11 @@ class EventEmitter {
     }
   }
 
-  emit(event: EventTypes, payload: TransformEventPayload): void {
+  async* emit(event: EventTypes, payload: TransformEventPayload): AsyncGenerator<void> {
     if (this.listeners[event]) {
-      this.listeners[event].forEach((listener) => listener(payload));
+      for (const listener of this.listeners[event]) {
+        yield listener(payload);
+      }
     }
   }
 }

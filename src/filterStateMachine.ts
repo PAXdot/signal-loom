@@ -1,5 +1,5 @@
 /**
- * The FilterStateMachine manages the state associated with filtering rules.
+ * The FilterStateMachine manages the state associated with filtering rules and rate shaping.
  */
 enum FilterState {
   /**
@@ -8,25 +8,29 @@ enum FilterState {
   Idle,
 
   /**
-   * The state machine is actively applying filtering rules.
+   * The state machine is actively applying filtering rules or rate shaping.
    */
-  Filtering,
+  Processing,
 
   /**
-   * Filtering rules have been applied and the result has been delivered.
+   * Filtering rules or rate shaping have been applied and the result has been delivered.
    */
-  Filtered,
+  Processed,
 }
 
 /**
- * Represents the state and logic for filtering rules.
+ * Represents the state and logic for filtering rules and rate shaping.
  */
 export class FilterStateMachine {
   /**
    * Create a new instance of FilterStateMachine with the initial state.
+   * @param filterRule - The filtering rule to apply.
+   * @param rateLimiter - The rate limiter for rate shaping.
+   * @param eventEmitter - The event emitter for delivery logs.
    */
   public constructor(
     private readonly filterRule: FilterRule,
+    private readonly rateLimiter: RateLimiter,
     private readonly eventEmitter: EventEmitter
   ) {
     this.state = FilterState.Idle;
@@ -38,20 +42,27 @@ export class FilterStateMachine {
   public state: FilterState = FilterState.Idle;
 
   /**
-   * Applies the filtering rules and progresses the state machine.
+   * Applies the filtering rules and rate shaping, then progresses the state machine.
    *
-   * @param payload - The payload to apply the filtering rules to.
-   * @returns A promise that resolves with the result of the filtering process.
+   * @param payload - The payload to apply the filtering rules and rate shaping to.
+   * @returns A promise that resolves with the result of the processing.
    */
   public async processPayload(payload: unknown): Promise<unknown> {
-    switch (this.state) {
-      case FilterState.Idle:
-        this.state = FilterState.Filtering;
-        return this.applyFilterRule(payload);
-      case FilterState.Filtering:
-        throw new Error("Already in the process of filtering.");
-      case FilterState.Filtered:
-        throw new Error("Payload has already been filtered.");
+    if (this.state !== FilterState.Idle) {
+      throw new Error("Already in the process of filtering or rate shaping.");
+    }
+
+    this.state = FilterState.Processing;
+
+    try {
+      const shapedPayload = await this.rateLimiter.shape(payload);
+      const result = await this.applyFilterRule(shapedPayload);
+      this.state = FilterState.Processed;
+      this.eventEmitter.emit('deliveryLog', { payload: result, timestamp: Date.now() });
+      return result;
+    } catch (error) {
+      this.state = FilterState.Idle;
+      throw error;
     }
   }
 
@@ -62,8 +73,6 @@ export class FilterStateMachine {
    * @returns The result of the filtering process.
    */
   private async applyFilterRule(payload: unknown): Promise<unknown> {
-    const result = await this.filterRule.apply(payload);
-    this.state = FilterState.Filtered;
-    return result;
+    return await this.filterRule.apply(payload);
   }
 }
