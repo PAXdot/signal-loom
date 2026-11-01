@@ -1,41 +1,34 @@
+import { EventEmitter } from 'node:events';
+import { FilterRule } from './filterRule';
+import { FilterState } from './filterState';
+
+/**
+ * A utility type that defines the shape of a time-based filtering rule.
+ */
+export type TimeBasedFilterRule = FilterRule & { cronExpression: string };
+
 /**
  * The FilterStateMachine manages the state associated with filtering rules.
- */
-enum FilterState {
-  /**
-   * The initial state of the state machine.
-   */
-  Idle,
-
-  /**
-   * The state machine is actively applying filtering rules.
-   */
-  Filtering,
-
-  /**
-   * Filtering rules have been applied and the result has been delivered.
-   */
-  Filtered,
-}
-
-/**
- * Represents the state and logic for filtering rules.
  */
 export class FilterStateMachine {
   /**
    * Create a new instance of FilterStateMachine with the initial state.
    */
   public constructor(
-    private readonly filterRule: FilterRule,
-    private readonly eventEmitter: EventEmitter
+    private readonly filterRule: TimeBasedFilterRule,
+    private readonly eventEmitter: EventEmitter,
+    private readonly cronValidator: (cron: string) => boolean
   ) {
+    if (!cronValidator(filterRule.cronExpression)) {
+      throw new Error('Invalid cron expression');
+    }
     this.state = FilterState.Idle;
   }
 
   /**
    * The current state of the state machine.
    */
-  public state: FilterState = FilterState.Idle;
+  public state = FilterState.Idle;
 
   /**
    * Applies the filtering rules and progresses the state machine.
@@ -49,21 +42,40 @@ export class FilterStateMachine {
         this.state = FilterState.Filtering;
         return this.applyFilterRule(payload);
       case FilterState.Filtering:
-        throw new Error("Already in the process of filtering.");
+        throw new Error('Already in the process of filtering.');
       case FilterState.Filtered:
-        throw new Error("Payload has already been filtered.");
+        throw new Error('Payload has already been filtered.');
     }
   }
 
   /**
-   * Applies the filter rule to the given payload.
+   * Applies the filter rule to the given payload if it is within the specified time frame.
    *
    * @param payload - The payload to apply the filter rule to.
    * @returns The result of the filtering process.
    */
   private async applyFilterRule(payload: unknown): Promise<unknown> {
-    const result = await this.filterRule.apply(payload);
-    this.state = FilterState.Filtered;
-    return result;
+    const now = new Date();
+    if (this.isValidTime(now, this.filterRule.cronExpression)) {
+      const result = await this.filterRule.apply(payload);
+      this.state = FilterState.Filtered;
+      return result;
+    } else {
+      this.state = FilterState.Idle;
+      throw new Error('Filtering rule is not active at the current time.');
+    }
+  }
+
+  /**
+   * Checks if the given time is valid according to the specified cron expression.
+   *
+   * @param time - The time to check.
+   * @param cronExpression - The cron expression to validate against.
+   * @returns True if the time is valid, false otherwise.
+   */
+  private isValidTime(time: Date, cronExpression: string): boolean {
+    // Use a cron validator library or implement custom validation logic here
+    // This is a placeholder for a more complex validation logic
+    return true;
   }
 }
