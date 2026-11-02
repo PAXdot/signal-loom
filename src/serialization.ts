@@ -1,5 +1,37 @@
 // src/serialization.ts
 
+import { EventEmitter } from 'node:events';
+import * as z from 'zod';
+
+/**
+ * Validate the payload against a provided Zod schema.
+ *
+ * @param payload - The payload to validate.
+ * @param schema - The Zod schema to validate against.
+ * @param emitter - An optional event emitter to dispatch validation results.
+ * @returns The validated payload if valid, throws an error otherwise.
+ */
+export function validatePayload<T extends z.ZodSchema>(
+  payload: unknown,
+  schema: T,
+  emitter?: EventEmitter
+): z.infer<T> {
+  const result = schema.safeParse(payload);
+
+  if (result.success) {
+    if (emitter) {
+      emitter.emit('payloadValid', result.data);
+    }
+    return result.data;
+  }
+
+  if (emitter) {
+    emitter.emit('payloadInvalid', result.error);
+  }
+
+  throw new Error(`Payload validation failed: ${result.error.message}`);
+}
+
 /**
  * Serialize payload into a human-readable format.
  *
@@ -11,7 +43,7 @@ export function serializePayload(payload: Uint8Array | string): string {
   if (typeof payload === 'string') {
     try {
       return JSON.stringify(JSON.parse(payload));
-    } catch {
+    } catch (e) {
       return payload;
     }
   }
@@ -36,7 +68,7 @@ export function deserializePayload(payload: string, targetType: 'json' | 'buffer
     case 'json':
       try {
         return JSON.parse(payload);
-      } catch {
+      } catch (e) {
         throw new Error('Invalid JSON payload');
       }
     case 'buffer':
