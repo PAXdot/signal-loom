@@ -23,8 +23,11 @@ describe('FilterStateMachine', () => {
     expect(machine.state).toBe(FilterState.IDLE);
   });
 
-  it('should not accept invalid operations', () => {
+  it('should throw error with invalid operation name', () => {
     const machine = new FilterStateMachine();
-    expect(() => machine.setFilterRule({ operation: 'invalid' as FilterOperation, value: '' })).toThrow();
+    const invalidRule: FilterRule = { operation: 'invalid' as FilterOperation, value: '' };
+    expect(() => machine.setFilterRule(invalidRule)).toThrow(
+      `Invalid filter operation: ${invalidRule.operation}`
+    );
   });
 });
