@@ -28,8 +28,8 @@ class EventEmitter {
   off(event: EventTypes, listener: (payload: TransformEventPayload) => Promise<void>): void {
     if (this.listeners[event]) {
       const index = this.listeners[event].indexOf(listener);
-      if (index !== -1) {
-        this.listeners[event].splice(index, 1);
+      if (index > -1) {
+        this.listeners[event]..splice(index, 1);
       }
     } else {
       throw new Error(`Unknown event: ${event}`);
