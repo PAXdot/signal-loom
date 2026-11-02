@@ -35,7 +35,9 @@ export class RateShapingDeliveryLogs {
     let deliveries = 0;
     let failures = 0;
 
-    for (const log of this.log) {
+    const logLength = this.log.length;
+    for (let i = 0; i < logLength; i++) {
+      const log = this.log[i];
       if (log.timestamp.getTime() > now.getTime() - logDuration) {
         tokensConsumed += log.attempt - 1;
         switch (log.status) {
