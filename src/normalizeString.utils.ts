@@ -1,6 +1,9 @@
+import { toLower } from 'lodash-es';
+
 /**
- * Normalizes a given string by lowercasing it, removing leading/trailing spaces,
- * and trims empty strings. Throws an error if the input is not a string.
+ * Normalizes a given string by using lodash's toLower for consistent
+ * case conversion, removing leading/trailing spaces, and trims empty strings.
+ * Throws an error if the input is not a string.
  *
  * @param {string} str - The string to normalize.
  * @throws {Error} When input is not a string.
@@ -10,5 +13,5 @@ export const normalizeString = (str: string): string => {
   if (typeof str !== 'string') {
     throw new Error('Input must be a string');
   }
-  return str.trim().toLowerCase();
+  return toLower(str.trim());
 };
