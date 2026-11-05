@@ -18,3 +18,23 @@ export function calculateSignatureScore(signature: string, expectedSignature: st
 
   return Math.min(Math.round(score), 100);
 }
+
+// ... other functions and module exports ...
+
+/**
+ * Tests the calculateSignatureScore function.
+ */
+describe('calculateSignatureScore', () => {
+  test('returns 100 for identical signatures', () => {
+    expect(calculateSignatureScore('expected', 'expected')).toBe(100);
+  });
+
+  test('returns 0 for completely different signatures', () => {
+    expect(calculateSignatureScore('different', 'expected')).toBe(0);
+  });
+
+  test('returns a value between 0 and 100 for similar signatures', () => {
+    expect(calculateSignatureScore('expectedSignature', 'expctedSign')).toBeGreaterThan(0);
+    expect(calculateSignatureScore('expectedSignature', 'expctedSign')).toBeLessThan(100);
+  });
+});
