@@ -6,6 +6,7 @@ import { RateShapingDeliveryLogs } from './rateShapingDeliveryLogs';
 
 /**
  * Calculates a score for incoming events based on rate shaping and delivery logs.
+ * The score is a value between 0 and 1, with higher values indicating better prospects for delivery.
  * @param event - The incoming event.
  * @param eventEmitter - The event emitter instance.
  * @param rateCalculator - The rate calculator instance.
@@ -19,20 +20,22 @@ export function calculateScore(
   deliveryLogs: RateShapingDeliveryLogs,
 ) {
   const { rateLimit, rateLimitRemaining } = rateCalculator.getRateLimit(event);
-  const recentDeliveryLogs = deliveryLogs.getRecentDeliveries(event);
+  const recentDeliveryLog = deliveryLogs.getMostRecentDelivery(event);
 
-  // Calculate score based on rate limit, remaining rate limit, and recent delivery failures.
-  // Adjust the calculation as needed to fit your specific requirements.
-  const score = (
-    (rateLimit === 0 ? 0 : rateLimitRemaining / rateLimit) +
-    (recentDeliveryLogs.some((log) => log.failed) ? 0.5 : 0)
-  ).toFixed(2);
+  if (rateLimit === 0 || recentDeliveryLog?.failed) {
+    // If rate limit is exhausted or most recent delivery failed, score is significantly reduced.
+    return 0.1;
+  }
 
-  return score;
+  // Calculate score based on rate limit usage and recent delivery failures (if any).
+  const score = (rateLimitRemaining / rateLimit) * 0.8 +
+               (recentDeliveryLog?.failed ? 0.2 : 0);
+
+  return parseFloat(score.toFixed(2));
 }
 
 /**
- * Ranks incoming events based on their calculated scores.
+ * Ranks incoming events based on their calculated scores in descending order.
  * @param events - The list of incoming events.
  * @param eventEmitter - The event emitter instance.
  * @param rateCalculator - The rate calculator instance.
@@ -47,6 +50,6 @@ export function rankEvents(
 ) {
   return events
     .map((event) => ({ event, score: calculateScore(event, eventEmitter, rateCalculator, deliveryLogs) }))
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score) // Sort by score in descending order
     .map(({ event }) => event);
 }
