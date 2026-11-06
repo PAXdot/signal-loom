@@ -8,21 +8,26 @@ import { Event } from './serialization';
  */
 export class Stats {
   private totalEvents: number;
-  private failedEvents: number;
+  private failedEventsDueToFilter: number;
+  private failedEventsDueToOther: number;
 
   constructor() {
     this.totalEvents = 0;
-    this.failedEvents = 0;
+    this.failedEventsDueToFilter = 0;
+    this.failedEventsDueToOther = 0;
   }
 
   /**
-   * Increment total events and failed events if the event is null.
+   * Increment total events and track failed events based on the filter result.
    * @param event - The event to track.
+   * @param shouldDiscard - Whether the event should be discarded due to filter rules.
    */
-  track(event: Event | null) {
+  track(event: Event, shouldDiscard: boolean, reason?: string) {
     this.totalEvents++;
-    if (event === null) {
-      this.failedEvents++;
+    if (shouldDiscard) {
+      this.failedEventsDueToFilter++;
+    } else if (event === null) {
+      this.failedEventsDueToOther++;
     }
   }
 
@@ -34,10 +39,17 @@ export class Stats {
   }
 
   /**
-   * Get the number of failed events.
+   * Get the number of failed events due to filter rules.
    */
-  getFailedEvents(): number {
-    return this.failedEvents;
+  getFailedEventsDueToFilter(): number {
+    return this.failedEventsDueToFilter;
+  }
+
+  /**
+   * Get the number of failed events due to other reasons.
+   */
+  getFailedEventsDueToOther(): number {
+    return this.failedEventsDueToOther;
   }
 
   /**
@@ -45,6 +57,7 @@ export class Stats {
    */
   reset() {
     this.totalEvents = 0;
-    this.failedEvents = 0;
+    this.failedEventsDueToFilter = 0;
+    this.failedEventsDueToOther = 0;
   }
 }
