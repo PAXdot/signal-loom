@@ -21,7 +21,7 @@ export function computeDeadline(
  * Whether a given timestamp (ms) is before or at the current time.
  */
 export function isExpired(timestamp: number, now: number = Date.now()): boolean {
-  return timestamp <= now;
+  return timestamp < now;
 }
 
 /**
