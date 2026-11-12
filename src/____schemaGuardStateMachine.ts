@@ -7,10 +7,11 @@ export type SchemaGuardState =
   | { type: 'READY', cache: SchemaGuardCache }
   | { type: 'ERROR', error: Error };
 
-export type SchemaGuardAction =
+export type SchemaGuardAction
   | { type: 'LOAD_CONFIG', config: SchemaGuardConfig }
   | { type: 'CAUGHT_ERROR', error: Error }
-  | { type: 'INIT' };
+  | { type: 'INIT', isReplay?: boolean }
+  | { type: 'RESET' };
 
 export function schemaGuardStateMachine(
   initialState: SchemaGuardState = { type: 'IDLE' },
@@ -22,10 +23,12 @@ export function schemaGuardStateMachine(
       case 'CAUGHT_ERROR':
         return { type: 'ERROR', error: action.error };
       case 'INIT':
-        if (initialState.type === 'IDLE') {
+        if (initialState.type === 'IDLE' && !action.isReplay) {
           return { type: 'READY', cache: {} };
         }
         return initialState;
+      case 'RESET':
+        return { type: 'IDLE' };
       default:
         return initialState;
     }
