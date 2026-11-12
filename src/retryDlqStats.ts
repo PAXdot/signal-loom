@@ -9,6 +9,7 @@ export interface RetryDlqStats {
   dlqDeliveries: number;
   dlqDeliveryErrors: number;
   currentRetryCount: number;
+  lastPayload?: string; // Add a new optional field for the last transformed payload
 }
 
 export function createRetryDlqStats(): RetryDlqStats {
@@ -19,38 +20,25 @@ export function createRetryDlqStats(): RetryDlqStats {
     dlqDeliveries: 0,
     dlqDeliveryErrors: 0,
     currentRetryCount: 0,
+    lastPayload: undefined, // Initialize lastPayload as undefined
   };
 }
 
-export function recordRetryAttempt(stats: RetryDlqStats): void {
-  stats.totalRetries++;
-  stats.currentRetryCount++;
-}
+// ... (other functions remain the same)
 
-export function recordRetrySuccess(stats: RetryDlqStats): void {
-  stats.successfulRetries++;
-  stats.currentRetryCount = 0;
-}
-
-export function recordRetryFailure(stats: RetryDlqStats): void {
-  stats.failedRetries++;
-  stats.currentRetryCount = 0;
-}
-
-export function recordDlqDelivery(stats: RetryDlqStats): void {
-  stats.dlqDeliveries++;
-}
-
-export function recordDlqDeliveryError(stats: RetryDlqStats): void {
-  stats.dlqDeliveryErrors++;
+// Add a new function to update the last payload upon successful transform or DLQ delivery
+export function updateLastPayload(stats: RetryDlqStats, payload: string): void {
+  stats.lastPayload = payload;
 }
 
 export function getRetryDlqStatsSummary(stats: RetryDlqStats): string {
+  const lastPayload = stats.lastPayload ? `Last Payload (transformed): ${stats.lastPayload}` : '';
   return (
     `Retries: ${stats.totalRetries} total, ` +
     `${stats.successfulRetries} successful, ` +
     `${stats.failedRetries} failed; ` +
     `DLQ: ${stats.dlqDeliveries} deliveries, ` +
-    `${stats.dlqDeliveryErrors} errors`
+    `${stats.dlqDeliveryErrors} errors\n` +
+    `${lastPayload}` // Include the last payload in the summary
   );
 }
