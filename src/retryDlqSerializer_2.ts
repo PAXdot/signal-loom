@@ -4,7 +4,7 @@ import { strict as assert } from 'node:assert';
 export type DlqEntry = {
   readonly id: string;
   readonly originalPayload: unknown;
-  readonly error: string;
+  readonly error: Error | string;
   readonly timestamp: number;
   readonly retryCount: number;
 };
@@ -71,15 +71,12 @@ function assertIsRetryDlqState(value: unknown): asserts value is RetryDlqState {
 }
 
 function assertIsDlqEntry(value: unknown): asserts value is DlqEntry {
-  if (typeof value !== 'object' || value === null) {
-    throw new Error('DlqEntry must be a non-null object');
-  }
-  const obj = value as Record<string, unknown>;
+  const obj = value as DlqEntry;
   if (typeof obj.id !== 'string' || obj.id.length === 0) {
     throw new Error('DlqEntry.id must be a non-empty string');
   }
-  if (typeof obj.error !== 'string') {
-    throw new Error('DlqEntry.error must be a string');
+  if (!(obj.error instanceof Error) && typeof obj.error !== 'string') {
+    throw new Error('DlqEntry.error must be an instance of Error or a string');
   }
   if (typeof obj.timestamp !== 'number' || !Number.isFinite(obj.timestamp)) {
     throw new Error('DlqEntry.timestamp must be a finite number');
