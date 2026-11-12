@@ -4,21 +4,27 @@ import { FilterRule, FilterRuleParser } from "./filterRuleParser";
 
 describe("FilterRuleParser", () => {
   describe("parse", () => {
-    it("parses valid JSON", () => {
-      const rule: FilterRule = {
+    it("parses valid JSON and enforces schema", () => {
+      const validRule: FilterRule = {
         type: "include",
         value: "test",
       };
 
-      const parsedRule = FilterRuleParser.parse(JSON.stringify(rule));
+      const invalidRule = { invalidProp: "test" };
 
-      assert.deepStrictEqual(parsedRule, rule);
+      assert.doesNotThrow(() => {
+        FilterRuleParser.parse(JSON.stringify(validRule));
+      });
+
+      assert.throws(() => {
+        FilterRuleParser.parse(JSON.stringify(invalidRule));
+      }, Error, "Invalid filter rule JSON: unexpected property 'invalidProp'");
     });
 
-    it("throws error for invalid JSON", () => {
+    it("throws error for invalid JSON syntax", () => {
       assert.throws(() => {
         FilterRuleParser.parse("invalid json");
-      }, Error, "Invalid filter rule JSON");
+      }, SyntaxError, "Unexpected token i in JSON at position 0");
     });
   });
 });
